@@ -46,8 +46,8 @@ ratio_outside_total <- time_outside_thresholds / (nrow(vitals.1min.data.clean.un
 
 print(time_outside_thresholds)
 print(ratio_outside_total)
-``
-`
+```
+
 ## Calculation 2: Area outside MAPopt
 ## Segment Excursions
 
