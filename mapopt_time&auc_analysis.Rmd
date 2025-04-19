@@ -38,6 +38,17 @@ vitals.1min.data.clean.unpad <- vitals.1min.data.clean.unpad %>%
   ))
 ```
 
+## Calculation 1: Time outside MAPopt
+```{r}
+time_outside_thresholds <- sum(vitals.1min.data.clean.unpad$MAP.trace < threshold_1) + sum(vitals.1min.data.clean.unpad$MAP.trace > threshold_2)
+
+ratio_outside_total <- time_outside_thresholds / (nrow(vitals.1min.data.clean.unpad))
+
+print(time_outside_thresholds)
+print(ratio_outside_total)
+``
+`
+## Calculation 2: Area outside MAPopt
 ## Segment Excursions
 
 ```{r}
