@@ -1,0 +1,113 @@
+
+---
+title: "MAPopt AUC Analysis"
+author: "Jiale Xie, 18jx49@queensu.ca"
+date: "19/04/2025"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(ggplot2)
+```
+
+## Introduction
+
+This report analyzes time spent and area under the curve (AUC) outside a patient-specific MAPopt range. The thresholds can be customized, and results include visualizations and numerical summaries.
+
+## User Inputs
+
+```{r}
+# Define MAPopt thresholds (edit these)
+threshold_1 <- # Enter MAPopt lower bound 
+threshold_2 <- # Enter MAPopt upper bound
+```
+
+## Load and Prepare Data
+
+```{r}
+# Load your data (replace path with actual CSV)
+vitals.1min.data.clean.unpad <- read.csv("your_data.csv")
+
+# Classify MAP values relative to thresholds
+vitals.1min.data.clean.unpad <- vitals.1min.data.clean.unpad %>%
+  mutate(status = case_when(
+    MAP.trace < threshold_1 ~ "below",
+    MAP.trace > threshold_2 ~ "above",
+    TRUE ~ "within"
+  ))
+```
+
+## Segment Excursions
+
+```{r}
+# Helper function to segment continuous excursions
+create_segments <- function(data, status_value) {
+  data %>%
+    filter(status == status_value) %>%
+    mutate(segment = cumsum(c(1, diff(cleaned_minute) != 1)))
+}
+
+# Create segment datasets
+segments_below <- create_segments(vitals.1min.data.clean.unpad, "below")
+segments_above <- create_segments(vitals.1min.data.clean.unpad, "above")
+```
+
+## Visualization
+
+```{r}
+# Plot MAP and highlight excursions
+p <- ggplot(data = vitals.1min.data.clean.unpad, aes(x = cleaned_minute, y = MAP.trace)) +
+  geom_line(color = "purple", size = 0.5) +
+  geom_ribbon(data = segments_below,
+              aes(ymin = MAP.trace, ymax = threshold_1, group = segment),
+              fill = "red", alpha = 0.2) +
+  geom_ribbon(data = segments_above,
+              aes(ymin = threshold_2, ymax = MAP.trace, group = segment),
+              fill = "red", alpha = 0.2) +
+  geom_hline(yintercept = c(threshold_1, threshold_2), linetype = "dashed", color = "darkgreen") +
+  annotate("rect",
+           xmin = min(vitals.1min.data.clean.unpad$cleaned_minute),
+           xmax = max(vitals.1min.data.clean.unpad$cleaned_minute),
+           ymin = threshold_1, ymax = threshold_2,
+           alpha = 0.1, fill = "green") +
+  labs(title = "MAP Excursions Relative to MAPopt Range",
+       x = "Time (minutes)", y = "MAP (mmHg)") +
+  theme_minimal()
+
+p
+```
+
+## AUC Calculation
+
+```{r}
+# AUC for below-threshold segments
+calculate_auc_below <- function(data) {
+  data %>%
+    group_by(segment) %>%
+    summarize(AUC = sum((threshold_1 - MAP.trace) * diff(c(cleaned_minute, tail(cleaned_minute, 1))))) %>%
+    pull(AUC) %>%
+    sum()
+}
+
+# AUC for above-threshold segments
+calculate_auc_above <- function(data) {
+  data %>%
+    group_by(segment) %>%
+    summarize(AUC = sum((MAP.trace - threshold_2) * diff(c(cleaned_minute, tail(cleaned_minute, 1))))) %>%
+    pull(AUC) %>%
+    sum()
+}
+
+AUC_below <- calculate_auc_below(segments_below)
+AUC_above <- calculate_auc_above(segments_above)
+total_AUC <- AUC_below + AUC_above
+```
+
+## Results Summary
+
+```{r}
+cat("AUC Below Threshold:", round(AUC_below, 2), "mmHg·min\n")
+cat("AUC Above Threshold:", round(AUC_above, 2), "mmHg·min\n")
+cat("Total AUC Outside MAPopt:", round(total_AUC, 2), "mmHg·min\n")
+```
